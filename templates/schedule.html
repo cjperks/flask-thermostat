@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h1>Heating overview</h1>
+
+{% if data.err_msg %}
+    {{ data.err_msg }}
+{% endif %}
+
+
+<h2>Current Schedule</h2>
+
+<table>
+    <tr>
+        <th>Start time</th>
+        <th>Target (C)</th>
+    </tr>
+    {% for entry in data.sched %}
+    <tr>
+        <td>{{ entry[1] }}</td>
+        <td>{{ entry[2] }}</td>
+        <td><button type="button"><---delete</button></td>
+    </tr>
+    {% endfor %}
+    <form action = "{{ url_for('schedule') }}" method="post">
+    <tr>
+        <td>
+            <input type="time" name="start" min="00:00" max="23:59" required>
+        </td>
+        <td>
+            <input type="number" name="override_temp" min="7" max="30" value="21" size="2">
+        </td>
+        <td>
+            <input type="submit" value="Add">
+        </td>
+    </tr>
+    </form>
+</table>
+
+<p>
+<a href="/">Home</a>
+</p>
+
+
+
+{% endblock %}

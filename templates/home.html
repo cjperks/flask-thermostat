@@ -1,23 +1,6 @@
-<head>
-<style>
-table {
-    font-family: arial, sans-serif;
-    border-collapse: collapse;
-    <!--width: 100%;-->
-}
+{% extends 'base.html' %}
 
-td, th {
-    border: 0px solid #dddddd;
-    text-align: left;
-    padding: 8px;
-}
-
-/*tr:nth-child(even) {
-    background-color: #dddddd;
-}*/
-</style>
-</head>
-<body>
+{% block content %}
 
 <h1>Heating overview</h1>
 
@@ -106,3 +89,6 @@ td, th {
 	<p>No current boiler data - something went wrong</p>
 
 {% endif %}
+
+
+{% endblock %}

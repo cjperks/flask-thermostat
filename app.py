@@ -1,4 +1,4 @@
-from flask import Flask, g, render_template, request, redirect
+from flask import Flask, g, render_template, request
 import sqlite3
 import datetime
 from datetime import timezone
@@ -131,7 +131,9 @@ def home():
 # Page to control the basic schedule
 @app.route('/schedule/')
 def schedule():
-    return 'This is where you set the schedule'
+    sched = query_db('SELECT * FROM schedule ORDER BY start_time')
+    data = {'sched': sched}
+    return render_template('schedule.html', data=data)
 
 
 # Page to display statistics about heating usage
