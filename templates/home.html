@@ -1,0 +1,108 @@
+<head>
+<style>
+table {
+    font-family: arial, sans-serif;
+    border-collapse: collapse;
+    <!--width: 100%;-->
+}
+
+td, th {
+    border: 0px solid #dddddd;
+    text-align: left;
+    padding: 8px;
+}
+
+/*tr:nth-child(even) {
+    background-color: #dddddd;
+}*/
+</style>
+</head>
+<body>
+
+<h1>Heating overview</h1>
+
+{% if data.err_msg %}
+    {{ data.err_msg }}
+{% endif %}
+
+<h2>Current ({{ data.server_now }})</h2>
+{% if data.boiler_current[1] %}
+    <table>
+        <tr>
+            <td>Average temp:</td>
+            <td>{{ data.temp }}</td>
+        </tr>
+        <tr>
+            <td>Boiler:</td>
+            <td>
+            {% if data.boiler_current[2] %}
+                ON
+            {% else %}
+                OFF
+            {% endif %}
+            </td>
+        </tr>
+        <tr>
+            <td>Aiming for:</td>
+            <td>{{ data.setpoint_current[2] }}</td>
+        </tr>
+    </table>
+	
+	<h2>Override the current settings!</h2>
+    {% if data.oride %}
+        <p>Manual override in place: {{ data.oride[2] }}C until {{ data.oride[1] }}</p>
+        <form action = "{{ url_for('home') }}" method="post">
+            <input type="submit" name="override_cancel" value="Cancel">
+        </form>
+
+    
+    {% else %}
+        <form action = "{{ url_for('home') }}" method="post">
+            <table>
+                <tr>
+                    <td>I want to aim for:</td>
+                    <td><input type="number" name="override_temp" min="7" max="30" value="21"></td>
+                    <td>C</td>
+                </tr>
+                <tr>
+                    <td>Until:</td>
+                    <td><input type="time" name="override_expiry" min="00:00" max="23:59" required></td>
+                </tr>
+                <tr>
+                    <td><input type="submit" value="Submit"></td>
+                </tr>
+            </table>
+        </form>
+    
+    {% endif %}
+    
+    <h2>Active sensors</h2>
+	<table>	
+	{% for room in data.rooms %}
+		<tr>
+			<td>{{ room[2] }}</td>
+			<td>{{ room[3]|round(1) }}</td>
+            {% if room[5] == 'error' %}
+				<td>Something might be wrong</td>
+
+			{% endif %}
+		</tr>
+	{% endfor %}
+	</table>
+
+<p>
+<a href="/schedule/">View/Edit the schedule</a>
+</p>
+<p>
+<a href="statistics/">View recent boiler stats</a>
+</p>
+</body>
+
+
+
+
+
+{% else %}
+	<p>No current boiler data - something went wrong</p>
+
+{% endif %}
