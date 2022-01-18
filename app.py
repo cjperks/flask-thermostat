@@ -6,7 +6,7 @@ from datetime import timezone
 
 app = Flask(__name__)
 
-# some sort of database connection...
+# database name/location
 DATABASE = 'thermostat.sqlite3'
 
 
@@ -29,17 +29,16 @@ def close_connection(exception):
 def query_db(query, args=(), one=False):
     cur = get_db().execute(query, args)
     rv = cur.fetchall()
-    # cur.close()
+    cur.close()
     return (rv[0] if rv else None) if one else rv
 
 
 # Write to db
 def write_db(query, args=()):
-    cur = get_db()
-    cur.execute(query, args)
-    print(query)
-    cur.commit()
-    # cur.close()
+    db = get_db()
+    db.cursor().execute(query, args)
+    db.commit()
+    db.cursor().close()
 
 
 # Homepage
@@ -63,16 +62,16 @@ def home():
                 write_db('INSERT INTO override (expires, temp, timestamp)'
                     ' VALUES (?, ?, ?)', values)
 
-            except:
-                err_msg = "error creating the overrides"
+            except Exception as e:
+                err_msg = "error creating the overrides: " + str(e)
 
         # cancel an override
         elif 'override_cancel' in request.form:
             try:
                 write_db('DELETE FROM override;')
 
-            except:
-                err_msg = "error deleting the overrides"
+            except Exception as e:
+                err_msg = "error deleting the overrides: " + str(e)
 
         else:
             return "at least its a POST..."
@@ -129,10 +128,41 @@ def home():
 
 
 # Page to control the basic schedule
-@app.route('/schedule/')
+@app.route('/schedule/', methods=['POST', 'GET'])
 def schedule():
-    sched = query_db('SELECT * FROM schedule ORDER BY start_time')
-    data = {'sched': sched}
+
+    err_msg = ""
+
+    # if we've got new data...
+    if request.method == "POST":
+        # return request.form
+        # delete a row
+        if 'delete' in request.form:
+            try:
+                write_db("DELETE FROM schedule WHERE id = ?;", (request.form['delete'],))
+
+            except Exception as e:
+                err_msg = "Error deleting the requested entry: " + str(e)
+
+        # update a temp
+        elif 'update' in request.form:
+            try:
+                write_db("UPDATE schedule SET min_temp = ? WHERE id = ?;", (request.form['new_temp'], request.form['update']))
+
+            except Exception as e:
+                err_msg = "Error updating the requested entry: " + str(e)
+
+        # add a new row
+        elif 'start' in request.form:
+            try:
+                write_db("INSERT INTO schedule (start_time, min_temp) VALUES (?, ?);", (request.form['start'] + ":00", request.form['new_temp']))
+
+            except Exception as e:
+                err_msg = "Error adding the new entry: " + str(e)
+
+    sched = query_db('SELECT * FROM schedule ORDER BY start_time ASC')
+    data = {'err_msg': err_msg,
+            'sched': sched}
     return render_template('schedule.html', data=data)
 
 

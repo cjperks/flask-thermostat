@@ -2,34 +2,48 @@
 
 {% block content %}
 
-<h1>Heating overview</h1>
+<h1>Current schedule</h1>
 
 {% if data.err_msg %}
     {{ data.err_msg }}
 {% endif %}
 
-
-<h2>Current Schedule</h2>
-
 <table>
     <tr>
+        <th></th>
         <th>Start time</th>
         <th>Target (C)</th>
+        <th>New temp (C)</th>
     </tr>
     {% for entry in data.sched %}
     <tr>
+        {% if loop.index > 1 %}
+        <form action = "{{ url_for('schedule') }}" method="post">
+            <td><button type="submit" name="delete" value="{{ entry[0] }}">Delete--></button></td>
+        </form>
+        {% else %}
+            <td></td>
+        {% endif %}
         <td>{{ entry[1] }}</td>
         <td>{{ entry[2] }}</td>
-        <td><button type="button"><---delete</button></td>
+        <form action = "{{ url_for('schedule') }}" method="post">
+            <td>
+                <input type="number" name="new_temp" min="7" max="30" size="2" required>
+            </td>
+            <td>
+                <button type="submit" name="update" value="{{ entry[0] }}">Update</button>
+            </td>
+        </form>
     </tr>
     {% endfor %}
     <form action = "{{ url_for('schedule') }}" method="post">
     <tr>
+        <td></td>
         <td>
             <input type="time" name="start" min="00:00" max="23:59" required>
         </td>
         <td>
-            <input type="number" name="override_temp" min="7" max="30" value="21" size="2">
+            <input type="number" name="new_temp" min="7" max="30" value="19" size="2" required>
         </td>
         <td>
             <input type="submit" value="Add">
