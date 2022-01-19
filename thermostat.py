@@ -25,7 +25,14 @@
 
 import time, os, signal, sys, sqlite3, datetime
 import RPi.GPIO as GPIO
+from dbshrink import archive_db, shrink_db
 
+# Global settings
+DATABASE = "/home/pi/thermostat/thermostat.sqlite3"
+sensorPath = "/sys/bus/w1/devices"
+
+
+# RPi settings
 # set the General Purpose Input/Output pins to the correct mode
 GPIO.setmode(GPIO.BCM)
 
@@ -52,17 +59,19 @@ def sigterm_handler(_signo, _stack_frame):
     # exit program - I think??
     sys.exit(0)
 
+# I have very little idea what this section is doing...
+
 
 # signal handler to catch the TERM signal
 signal.signal(signal.SIGTERM, sigterm_handler)
 
 signal.signal(signal.SIGINT, sigterm_handler)
 
-# connect to db for logging/interaction details
-conn = sqlite3.connect('/home/pi/boilerPi/thermostat.sqlite3')
-c = conn.cursor()
 
-sensorPath = "/sys/bus/w1/devices"
+# I have more of an idea about this...
+# connect to db for logging/interaction details
+conn = sqlite3.connect(DATABASE)
+c = conn.cursor()
 
 # create the recent temperature matrix placeholder
 last5 = [[], []]
@@ -72,6 +81,14 @@ if __name__ == "__main__":
 
     # loop forever
     while True:
+        # if the db is too big, archive and shrink
+        if os.path.getsize(DATABASE) > 10000000:
+            # copy the database to an date-tagged version
+            archive_db(DATABASE)
+
+            # remove all but the specified most recent entries from the current db
+            shrink_db(DATABASE, "control_log")
+            shrink_db(DATABASE, "temp_log")
 
         # get all the sensors
         tempSensors = os.listdir(sensorPath)
@@ -117,40 +134,41 @@ if __name__ == "__main__":
             if row[1] == "YES":
 
                 # check if the sensor exists in the location table
-                c.execute("SELECT id from boilerWeb_location WHERE sensor = ?", (row[0],))
+                c.execute("SELECT id from location WHERE sensor = ?", (row[0],))
 
                 if c.fetchone() is None:
                     # print("new location added")
                     # add the location into the location table, if missing
                     newLoc = "New location added " + str(datetime.datetime.now())
-                    c.execute("INSERT INTO boilerWeb_location (location_name, sensor, latest_temp, latest_time) VALUES(?,?,?,?)", (newLoc, row[0], row[2], timeStamp,))
+                    c.execute("INSERT INTO location (location_name, sensor, latest_temp, latest_time) VALUES(?,?,?,?)", (newLoc, row[0], row[2], timeStamp,))
                     conn.commit()
 
                     # add a temp long entry
-                    c.execute("INSERT INTO boilerWeb_temp_log (timestamp, sensor_id, temp) VALUES(?,?,?)", (timeStamp, row[0], row[2],))
+                    c.execute("INSERT INTO temp_log (timestamp, sensor_id, temp) VALUES(?,?,?)", (timeStamp, row[0], row[2],))
+                    # commit the record to the db
                     conn.commit()
 
                 else:
                     # update the current temp record
-                    c.execute("UPDATE boilerWeb_location SET latest_time = ?, latest_temp = ? WHERE sensor = ?", (timeStamp, row[2], row[0],))
+                    c.execute("UPDATE location SET latest_time = ?, latest_temp = ? WHERE sensor = ?", (timeStamp, row[2], row[0],))
                     # commit the record to the db
                     conn.commit()
 
                     # add an entry to the temperature log, if the temperature has changed
-                    c.execute("SELECT temp from boilerWeb_temp_log WHERE sensor_id = ? ORDER BY timestamp DESC LIMIT 1", (row[0],))
+                    c.execute("SELECT temp from temp_log WHERE sensor_id = ? ORDER BY timestamp DESC LIMIT 1", (row[0],))
 
                     lastTemp = c.fetchone()
                     # check if there are any temp readings
                     if lastTemp:
                         # if there are readings, compare the last one
                         if lastTemp[0] != row[2]:
-                            c.execute("INSERT INTO boilerWeb_temp_log (timestamp, sensor_id, temp) VALUES(?,?,?)", (timeStamp, row[0], row[2],))
+                            c.execute("INSERT INTO temp_log (timestamp, sensor_id, temp) VALUES(?,?,?)", (timeStamp, row[0], row[2],))
                             conn.commit()
 
                     # if there are no logs at all
                     else:
                         # add a temp long entry
-                        c.execute("INSERT INTO boilerWeb_temp_log (timestamp, sensor_id, temp) VALUES(?,?,?)", (timeStamp, row[0], row[2],))
+                        c.execute("INSERT INTO temp_log (timestamp, sensor_id, temp) VALUES(?,?,?)", (timeStamp, row[0], row[2],))
                         conn.commit()
 
         # print("Target temp : %f" %target)
@@ -160,7 +178,7 @@ if __name__ == "__main__":
         # 1 = CRC value
         # 2 = temperature reading
 
-        # if we have no recent data, refil
+        # if we have no recent data, refill
         if len(last5[0]) == 0:
             for sensor in sensorData:
                 last5[0].append(sensor[0])
@@ -173,7 +191,7 @@ if __name__ == "__main__":
                 if sensor[0] in last5[0]:
                     # add the new reading to the start of the list
                     si = last5[0].index(sensor[0])
-                    last5[1][si].insert(0,sensor[2])
+                    last5[1][si].insert(0, sensor[2])
 
                     # keep only the most recent 5 readings
                     last5[1][si] = last5[1][si][:5]
@@ -202,7 +220,7 @@ if __name__ == "__main__":
         # print(last5)
 
         # check if we've changed state in the last 10 minutes
-        c.execute("SELECT output FROM boilerWeb_control_log WHERE timestamp >= (SELECT datetime('now', '-10 minutes')) ORDER BY timestamp DESC LIMIT 1")
+        c.execute("SELECT output FROM control_log WHERE timestamp >= (SELECT datetime('now', '-10 minutes')) ORDER BY timestamp DESC LIMIT 1")
         lastOutput = c.fetchone()
 
         # if there was a change inside 10 mins
@@ -213,7 +231,7 @@ if __name__ == "__main__":
         # if there was not, we can decide what to do
         else:
             # get the override details if present and not expired
-            c.execute("SELECT temp FROM boilerWeb_override WHERE expires >= (SELECT datetime('now')) ORDER BY expires DESC LIMIT 1")
+            c.execute("SELECT temp FROM override WHERE expires >= (SELECT datetime('now')) ORDER BY expires DESC LIMIT 1")
             override = c.fetchone()
 
             if override:
@@ -221,7 +239,7 @@ if __name__ == "__main__":
 
             else:
                 # get the normal scheduled temp
-                c.execute("SELECT min_temp FROM boilerWeb_schedule WHERE start_time <= (SELECT time('now', 'localtime')) ORDER BY start_time DESC LIMIT 1")
+                c.execute("SELECT min_temp FROM schedule WHERE start_time <= (SELECT time('now', 'localtime')) ORDER BY start_time DESC LIMIT 1")
                 target = c.fetchone()[0]
 
             # print("outside lockout")
@@ -241,7 +259,7 @@ if __name__ == "__main__":
         #
 
         # write the record of the control output back to the db, if different to the existing
-        c.execute("SELECT output, timestamp FROM boilerWeb_control_log ORDER BY timestamp DESC LIMIT 1")
+        c.execute("SELECT output, timestamp FROM control_log ORDER BY timestamp DESC LIMIT 1")
         lastOutput = c.fetchone()
 
         # prevents a crash if there is no log yet - shouldn't be an issue after initial config
@@ -249,7 +267,7 @@ if __name__ == "__main__":
             # compare to last if there is a last
             if output != lastOutput[0]:
                 # print("state change: {} -> {}" .format(lastOutput[0], output))
-                c.execute("INSERT INTO boilerWeb_control_log (timestamp, output) VALUES(?, ?)", (timeStamp, output))
+                c.execute("INSERT INTO control_log (timestamp, output) VALUES(?, ?)", (timeStamp, output))
                 conn.commit()
 
             # else:
@@ -257,7 +275,7 @@ if __name__ == "__main__":
 
         # if there is no last output - create one
         else:
-            c.execute("INSERT INTO boilerWeb_control_log (timestamp, output) VALUES(?, ?)", (timeStamp, output))
+            c.execute("INSERT INTO control_log (timestamp, output) VALUES(?, ?)", (timeStamp, output))
             conn.commit()
 
         # print("Calculated state: %s" %output)
