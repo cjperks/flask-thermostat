@@ -1,0 +1,13 @@
+[Unit]
+Description=uWSGI instance to serve the Flask based thermostat
+After=network.target
+
+[Service]
+User=pi
+Group=www-data
+WorkingDirectory=/home/pi/flask_thermostat
+Environment="PATH=/home/pi/flask_venv/bin"
+ExecStart=/home/pi/flask_venv/bin/uwsgi --ini flask_thermostat.ini
+
+[Install]
+WantedBy=multi-user.target
