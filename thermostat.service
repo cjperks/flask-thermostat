@@ -1,0 +1,13 @@
+[Unit]
+Description=Temperature monitoring and boiler control service
+After=network.target
+
+[Service]
+User=pi
+Group=www-data
+WorkingDirectory=/home/pi/flask_thermostat
+Environment="PATH=/home/pi/flask_venv/bin"
+ExecStart=/home/pi/flask_venv/bin/Python thermostat.py
+
+[Install]
+WantedBy=multi-user.target
