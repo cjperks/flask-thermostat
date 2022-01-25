@@ -1,0 +1,4 @@
+#git ignore file
+
+#ignore all python cache files
+*.pyc

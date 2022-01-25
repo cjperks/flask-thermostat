@@ -28,7 +28,7 @@ import RPi.GPIO as GPIO
 from dbshrink import archive_db, shrink_db
 
 # Global settings
-DATABASE = "/home/pi/thermostat/thermostat.sqlite3"
+DATABASE = "/home/pi/flask_thermostat/thermostat.sqlite3"
 sensorPath = "/sys/bus/w1/devices"
 
 
