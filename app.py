@@ -86,7 +86,7 @@ def home():
 
     # get the current setpoint
     setpoint_current = query_db("SELECT * FROM schedule WHERE start_time "
-        "< time('now')", one=True)
+        "< time('now') ORDER BY start_time DESC", one=True)
 
     # get the average temperature and check sensor status
     rooms = query_db('SELECT * FROM location')
