@@ -2,3 +2,6 @@
 
 #ignore all python cache files
 *.pyc
+
+#ignore the live database
+thermostat.sqlite
