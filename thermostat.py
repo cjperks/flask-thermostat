@@ -230,6 +230,11 @@ if __name__ == "__main__":
 
         # if there was not, we can decide what to do
         else:
+
+            # remove the override if expired
+            c.execute("DELETE FROM override WHERE expires <= (SELECT datetime('now'))")
+            conn.commit()
+
             # get the override details if present and not expired
             c.execute("SELECT temp FROM override WHERE expires >= (SELECT datetime('now')) ORDER BY expires DESC LIMIT 1")
             override = c.fetchone()
